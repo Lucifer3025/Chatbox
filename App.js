@@ -1,13 +1,115 @@
-.profile-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px;
+import { useState } from 'react';
+import './App.css';
+import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
+import {
+  MainContainer,
+  ChatContainer,
+  MessageList,
+  Message,
+  MessageInput,
+  TypingIndicator
+} from '@chatscope/chat-ui-kit-react';
+
+const API_KEY = "ABC";//Your API key
+
+const systemMessage = {
+  role: "system",
+  content: "Explain things like you're talking to a software professional with 2 years of experience."
+};
+
+function App() {
+  const [messages, setMessages] = useState([
+    {
+      message: "Hello, I'm ChatGPT! Ask me anything!",
+      sentTime: "just now",
+      sender: "ChatGPT"
+    }
+  ]);
+  const [isTyping, setIsTyping] = useState(false);
+
+  const handleSend = async (message) => {
+    const newMessage = {
+      message,
+      direction: 'outgoing',
+      sender: "user"
+    };
+
+    const newMessages = [...messages, newMessage];
+    setMessages(newMessages);
+
+    setIsTyping(true);
+    await processMessageToChatGPT(newMessages);
+  };
+
+  async function processMessageToChatGPT(chatMessages) {
+    let apiMessages = chatMessages.map((messageObject) => {
+      let role = "";
+      if (messageObject.sender === "ChatGPT") {
+        role = "assistant";
+      } else {
+        role = "user";
+      }
+      return { role: role, content: messageObject.message };
+    });
+
+    const apiRequestBody = {
+      "model": "gpt-3.5-turbo",
+      "messages": [
+        systemMessage,
+        ...apiMessages
+      ]
+    };
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(apiRequestBody)
+      });
+
+      const data = await response.json();
+
+      setMessages([...chatMessages, {
+        message: data.choices[0].message.content,
+        sender: "ChatGPT"
+      }]);
+      setIsTyping(false);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+      // Handle the error, e.g., set an error message in the state
+      setIsTyping(false);
+    }
+  }
+
+  return (
+    <div className="App">
+      <div className="profile-container">
+        <img
+          src="https://lexica.art/prompt/42caf939-7a40-4765-8e0d-8d3309d15e65" // Replace with the URL of your profile photo
+          alt="User Profile"
+          className="profile-photo"
+        />
+      </div>
+      <div style={{ position: "relative", height: "800px", width: "700px" }}>
+        <MainContainer>
+          <ChatContainer>
+            <MessageList
+              scrollBehavior="smooth"
+              typingIndicator={isTyping ? <TypingIndicator content="ChatGPT is typing" /> : null}
+            >
+              {messages.map((message, i) => {
+                return <Message key={i} model={message} />;
+              })}
+            </MessageList>
+            <MessageInput placeholder="Type message here" onSend={handleSend} />
+          </ChatContainer>
+        </MainContainer>
+      </div>
+    </div>
+  );
 }
 
-.profile-photo {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  margin-right: 10px;
-}
+export default App;
